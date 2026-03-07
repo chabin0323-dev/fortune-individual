@@ -1,82 +1,244 @@
-import React, { useState } from "react";
 
-type FortuneResult = {
-  luck: number;
-  text: string;
-};
+import React, { useState, useEffect, useCallback } from 'react';
+import { Fortune, UserInfo } from './types';
+import { BLOOD_TYPES, ZODIAC_SIGNS, ETO } from './constants';
+import { getFortune } from './services/geminiService';
+import { FortuneResultDisplay } from './components/FortuneResultDisplay';
+import { FortuneForm } from './components/FortuneForm';
+import { Loader } from './components/Loader';
+import { Logo } from './components/Logo';
+import { Manual } from './components/Manual';
 
-function App() {
-  const [name, setName] = useState("");
-  const [birth, setBirth] = useState("");
-  const [result, setResult] = useState<FortuneResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+const STORAGE_KEY_FORTUNE = 'persisted_fortune_result';
 
-  const onSubmit = async () => {
-    setLoading(true);
-    setError("");
-    setResult(null);
+const App: React.FC = () => {
+  const initialInfo: UserInfo = {
+    name: 'あなた', year: '1990', month: '1', day: '1',
+    bloodType: BLOOD_TYPES[0], zodiacSign: ZODIAC_SIGNS[0], eto: ETO[0]
+  };
+  const [userInfo, setUserInfo] = useState<UserInfo>(initialInfo);
+  const [savedInfo, setSavedInfo] = useState<UserInfo>(initialInfo);
+  const [targetDateType, setTargetDateType] = useState<'today' | 'tomorrow'>('today');
+  const [isLocked, setIsLocked] = useState(false);
+  const [isFortuneForOthers, setIsFortuneForOthers] = useState(false);
+  const [fortune, setFortune] = useState<Fortune | null>(null);
+  const [displayDate, setDisplayDate] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
 
-    try {
-      const payload = {
-        userInfo: { name, birth },
-        targetDate: new Date().toISOString(),
-      };
+  // 利用回数管理 (ブラウザのlocalStorageのみを使用)
+  const [usageCount, setUsageCount] = useState(0);
+  const MAX_USAGE = 5;
 
-      const res = await fetch("/api/fortune", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      // 🔴 ここが今回の致命的バグ修正ポイント
-      if (!data || typeof data.luck !== "number") {
-        setError("鑑定結果を取得できませんでした");
-        return;
+  // 1. 意図しない画面遷移の防止（BeforeUnload）
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isLoading) {
+        e.preventDefault();
+        e.returnValue = '入力内容が消去されますがよろしいですか？';
+        return e.returnValue;
       }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isLoading]);
 
-      setResult(data);
-    } catch (e: any) {
-      setError(e?.message || "通信エラー");
-    } finally {
-      setLoading(false);
+  // 2. データ復元と初期化
+  useEffect(() => {
+    // 固定プロフィールの復元
+    const storedProfile = localStorage.getItem('user_profile');
+    if (storedProfile) {
+      const profile = JSON.parse(storedProfile);
+      setUserInfo(profile);
+      setSavedInfo(profile);
+      setIsLocked(true);
+    }
+
+    // 前回の鑑定結果の復元（バックグラウンド維持・クラッシュ対策）
+    const storedFortune = localStorage.getItem(STORAGE_KEY_FORTUNE);
+    if (storedFortune) {
+      try {
+        const { fortune: f, date, name } = JSON.parse(storedFortune);
+        setFortune(f);
+        setDisplayDate(date);
+        setAutoSaveStatus('saved');
+      } catch (e) {
+        console.error("Failed to restore fortune", e);
+      }
+    }
+
+    // 利用回数の同期（データ削除や日付変更に対応）
+    const syncUsage = () => {
+      const today = new Date().toLocaleDateString();
+      const storedUsage = localStorage.getItem('fortune_usage');
+      if (storedUsage) {
+        try {
+          const { date, count } = JSON.parse(storedUsage);
+          if (date === today) {
+            setUsageCount(count);
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to parse usage data", e);
+        }
+      }
+      // データがない、または日付が違う場合はリセット
+      setUsageCount(0);
+      localStorage.setItem('fortune_usage', JSON.stringify({ date: today, count: 0 }));
+    };
+
+    syncUsage();
+
+    // スマホのバックグラウンド復帰時やデータ削除後にアプリに戻った際に再同期
+    const handleSync = () => {
+      if (document.visibilityState === 'visible') syncUsage();
+    };
+    window.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('focus', syncUsage);
+    window.addEventListener('pageshow', syncUsage);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('focus', syncUsage);
+      window.removeEventListener('pageshow', syncUsage);
+    };
+  }, []);
+
+  // 3. リアルタイム保存ロジック
+  const persistFortune = useCallback((f: Fortune, date: string, name: string) => {
+    setAutoSaveStatus('saving');
+    // Local Storageへのリアルタイム保存
+    localStorage.setItem(STORAGE_KEY_FORTUNE, JSON.stringify({ fortune: f, date, name }));
+    // ユーザーへの安心感のためのインジケーター表示制御
+    setTimeout(() => setAutoSaveStatus('saved'), 800);
+  }, []);
+
+  const handleLockToggle = (locked: boolean) => {
+    setIsLocked(locked);
+    if (locked && !isFortuneForOthers) {
+      localStorage.setItem('user_profile', JSON.stringify(userInfo));
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // 最新の利用状況をチェック（他タブでの操作やデータ削除に対応）
+    const today = new Date().toLocaleDateString();
+    const storedUsage = localStorage.getItem('fortune_usage');
+    let currentCount = usageCount;
+    if (storedUsage) {
+      try {
+        const { date, count } = JSON.parse(storedUsage);
+        if (date === today) {
+          currentCount = count;
+        } else {
+          currentCount = 0;
+        }
+      } catch (e) {}
+    } else {
+      currentCount = 0;
+    }
+    
+    if (currentCount >= MAX_USAGE) {
+      setUsageCount(currentCount); // 状態を同期
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setAutoSaveStatus(null);
+    
+    try {
+      const date = new Date();
+      if (targetDateType === 'tomorrow') date.setDate(date.getDate() + 1);
+      const dateStr = date.toLocaleDateString('ja-JP');
+      const label = `${dateStr} (${targetDateType === 'today' ? '今日' : '明日'})`;
+      
+      const result = await getFortune(userInfo, dateStr);
+      setFortune(result);
+      setDisplayDate(label);
+      
+      // 生成完了直後に即座に保存
+      persistFortune(result, label, userInfo.name);
+      
+      const newCount = usageCount + 1;
+      setUsageCount(newCount);
+      localStorage.setItem('fortune_usage', JSON.stringify({ 
+        date: new Date().toLocaleDateString(), 
+        count: newCount 
+      }));
+    } catch (err) {
+      setError('占いに失敗しました。');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStartOthers = () => {
+    setSavedInfo({ ...userInfo });
+    setIsFortuneForOthers(true);
+    setIsLocked(false);
+    setUserInfo({ ...initialInfo, name: 'あの人' });
+  };
+
+  const handleReturnMyInfo = () => {
+    setIsFortuneForOthers(false);
+    setIsLocked(true);
+    setUserInfo({ ...savedInfo });
+  };
+
   return (
-    <div style={{ padding: 24 }}>
-      <h1>AI Fortune Teller</h1>
-
-      <input
-        placeholder="名前"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <br />
-      <input
-        placeholder="生年月日"
-        value={birth}
-        onChange={(e) => setBirth(e.target.value)}
-      />
-      <br />
-      <button onClick={onSubmit} disabled={loading}>
-        鑑定する
-      </button>
-
-      {loading && <p>鑑定中...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      {result && (
-        <div>
-          <h2>運勢</h2>
-          <p>Luck: {result.luck}</p>
-          <p>{result.text}</p>
+    <div className="min-h-screen bg-black text-white p-4 flex flex-col items-center relative">
+      {/* 自動保存完了のインジケーター */}
+      {autoSaveStatus && (
+        <div className="fixed bottom-6 right-6 z-[60] flex items-center space-x-2 bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-2xl animate-fade-in">
+          <div className={`w-2 h-2 rounded-full ${autoSaveStatus === 'saved' ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-amber-400 animate-pulse'}`}></div>
+          <span className="text-[10px] font-bold text-gray-300 tracking-wider">
+            {autoSaveStatus === 'saved' ? '自動保存済み' : '保存中...'}
+          </span>
         </div>
       )}
+
+      <header className="w-full max-w-2xl mb-10 mt-8 flex flex-col items-center space-y-4">
+        <div className="w-full flex justify-end"><Manual /></div>
+        <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 text-center">
+          AI Fortune Teller
+        </h1>
+      </header>
+
+      <main className="w-full max-w-2xl bg-white/5 p-6 rounded-2xl border border-white/10">
+        <FortuneForm
+          {...userInfo}
+          setName={() => {}}
+          setYear={(v) => setUserInfo(p => ({...p, year: v}))}
+          setMonth={(v) => setUserInfo(p => ({...p, month: v}))}
+          setDay={(v) => setUserInfo(p => ({...p, day: v}))}
+          setBloodType={(v) => setUserInfo(p => ({...p, bloodType: v}))}
+          setZodiacSign={(v) => setUserInfo(p => ({...p, zodiacSign: v}))}
+          setEto={(v) => setUserInfo(p => ({...p, eto: v}))}
+          handleSubmit={handleSubmit}
+          isLoading={isLoading}
+          isLocked={isLocked}
+          setIsLocked={handleLockToggle}
+          isFortuneForOthers={isFortuneForOthers}
+          onStartFortuneForOthers={handleStartOthers}
+          onReturnToMyInfo={handleReturnMyInfo}
+          targetDateType={targetDateType}
+          setTargetDateType={setTargetDateType}
+          usageCount={usageCount}
+          maxUsage={MAX_USAGE}
+        />
+        <div className="mt-8">
+          {isLoading && <Loader />}
+          {error && <p className="text-red-400 text-center">{error}</p>}
+          {fortune && <FortuneResultDisplay fortune={fortune} date={displayDate} name={userInfo.name} />}
+        </div>
+      </main>
+      <footer className="mt-auto w-full"><Logo /></footer>
     </div>
   );
-}
+};
 
 export default App;
