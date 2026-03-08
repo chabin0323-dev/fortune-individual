@@ -9,20 +9,21 @@ import { Logo } from './components/Logo';
 import { Manual } from './components/Manual';
 
 const App: React.FC = () => {
-  const initialInfo: UserInfo = {
-    name: 'あなた',
-    year: '1990',
-    month: '1',
-    day: '1',
-    bloodType: BLOOD_TYPES[0],
-    zodiacSign: ZODIAC_SIGNS[0],
-    eto: ETO[0],
-  };
 
+  const MAX_USAGE = 5;
   const USER_INFO_STORAGE_KEY = 'fortune_user_info';
   const FORTUNE_STORAGE_KEY = 'fortune_latest_result';
   const USAGE_STORAGE_KEY = 'fortune_usage';
-  const MAX_USAGE = 5;
+
+  const initialInfo: UserInfo = {
+    name: 'あなた',
+    year: '',
+    month: '',
+    day: '',
+    bloodType: '',
+    zodiacSign: '',
+    eto: '',
+  };
 
   const [userInfo, setUserInfo] = useState<UserInfo>(initialInfo);
   const [targetDateType, setTargetDateType] = useState<'today' | 'tomorrow'>('today');
@@ -33,238 +34,155 @@ const App: React.FC = () => {
   const [displayDate, setDisplayDate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
   const [usageCount, setUsageCount] = useState(0);
 
-  const getTodayString = () => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return `${y}/${m}/${d}`;
+  const todayKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
   };
 
   const loadUsageCount = () => {
-    try {
+
+    try{
+
       const raw = localStorage.getItem(USAGE_STORAGE_KEY);
 
-      if (!raw) {
+      if(!raw){
         setUsageCount(0);
         return 0;
       }
 
       const parsed = JSON.parse(raw);
-      const today = getTodayString();
 
-      if (!parsed || parsed.date !== today) {
+      if(parsed.date !== todayKey()){
         setUsageCount(0);
+
         localStorage.setItem(
           USAGE_STORAGE_KEY,
-          JSON.stringify({
-            date: today,
-            count: 0,
-          })
+          JSON.stringify({date:todayKey(),count:0})
         );
+
         return 0;
       }
 
-      const count = Number(parsed.count);
-
-      if (!Number.isFinite(count) || count < 0) {
-        setUsageCount(0);
-        localStorage.setItem(
-          USAGE_STORAGE_KEY,
-          JSON.stringify({
-            date: today,
-            count: 0,
-          })
-        );
-        return 0;
-      }
-
+      const count = Number(parsed.count) || 0;
       setUsageCount(count);
       return count;
-    } catch {
+
+    }catch{
       setUsageCount(0);
       return 0;
     }
+
   };
 
-  const saveUsageCount = (count: number) => {
-    const today = getTodayString();
-    const safeCount = Number.isFinite(count) && count >= 0 ? count : 0;
+  const saveUsageCount = (count:number) => {
 
     localStorage.setItem(
       USAGE_STORAGE_KEY,
       JSON.stringify({
-        date: today,
-        count: safeCount,
+        date:todayKey(),
+        count
       })
     );
+
   };
 
-  const persistFortune = (result: Fortune, label: string, name: string) => {
-    try {
-      setAutoSaveStatus('saving');
+  useEffect(()=>{
 
-      localStorage.setItem(
-        FORTUNE_STORAGE_KEY,
-        JSON.stringify({
-          fortune: result,
-          displayDate: label,
-          name,
-          savedAt: new Date().toISOString(),
-        })
-      );
-
-      setAutoSaveStatus('saved');
-    } catch {
-      setAutoSaveStatus(null);
-    }
-  };
-
-  // 初回ロード
-  useEffect(() => {
-    try {
-      const savedUserInfo = localStorage.getItem(USER_INFO_STORAGE_KEY);
-      if (savedUserInfo) {
-        const parsed = JSON.parse(savedUserInfo);
-        setUserInfo({
-          ...initialInfo,
-          ...parsed,
-        });
-      }
-    } catch {
-      // 何もしない
+    const savedUser = localStorage.getItem(USER_INFO_STORAGE_KEY);
+    if(savedUser){
+      setUserInfo(JSON.parse(savedUser));
     }
 
-    try {
-      const savedFortune = localStorage.getItem(FORTUNE_STORAGE_KEY);
-      if (savedFortune) {
-        const parsed = JSON.parse(savedFortune);
-        if (parsed?.fortune) {
-          setFortune(parsed.fortune);
-        }
-        if (parsed?.displayDate) {
-          setDisplayDate(parsed.displayDate);
-        }
-      }
-    } catch {
-      // 何もしない
+    const savedFortune = localStorage.getItem(FORTUNE_STORAGE_KEY);
+    if(savedFortune){
+      const parsed = JSON.parse(savedFortune);
+      setFortune(parsed.fortune);
+      setDisplayDate(parsed.displayDate);
     }
 
     loadUsageCount();
-  }, []);
 
-  // userInfo 自動保存
-  useEffect(() => {
-    try {
-      localStorage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(userInfo));
-    } catch {
-      // 何もしない
-    }
-  }, [userInfo]);
+  },[]);
 
-  // タブ復帰・画面再表示・Safari復帰で利用回数を再読込
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadUsageCount();
-      }
-    };
+  useEffect(()=>{
 
-    const handleFocus = () => {
-      loadUsageCount();
-    };
+    localStorage.setItem(
+      USER_INFO_STORAGE_KEY,
+      JSON.stringify(userInfo)
+    );
 
-    const handlePageShow = () => {
-      loadUsageCount();
-    };
+  },[userInfo]);
 
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === USAGE_STORAGE_KEY || e.key === null) {
-        loadUsageCount();
-      }
-    };
+  const handleSubmit = async (e:React.FormEvent)=>{
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('pageshow', handlePageShow);
-    window.addEventListener('storage', handleStorage);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('pageshow', handlePageShow);
-      window.removeEventListener('storage', handleStorage);
-    };
-  }, []);
-
-  // 読み込み中だけ画面遷移防止
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isLoading) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isLoading]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const currentCount = loadUsageCount();
+    const current = loadUsageCount();
 
-    if (currentCount >= MAX_USAGE) {
-      setError('本日の利用回数上限に達しました。');
+    if(current >= MAX_USAGE){
+      setError('本日の利用回数上限に達しました');
       return;
     }
 
     setIsLoading(true);
     setError(null);
-    setAutoSaveStatus(null);
     setFortune(null);
 
-    try {
+    try{
+
       const date = new Date();
 
-      if (targetDateType === 'tomorrow') {
-        date.setDate(date.getDate() + 1);
+      if(targetDateType==='tomorrow'){
+        date.setDate(date.getDate()+1);
       }
 
       const dateStr = date.toLocaleDateString('ja-JP');
-      const label = `${dateStr} (${targetDateType === 'today' ? '今日' : '明日'})`;
+      const label = `${dateStr} (${targetDateType==='today'?'今日':'明日'})`;
 
-      const result = await getFortune(userInfo, targetDateType);
+      const result = await getFortune(userInfo,targetDateType);
 
       setFortune(result);
       setDisplayDate(label);
 
-      persistFortune(result, label, userInfo.name);
+      localStorage.setItem(
+        FORTUNE_STORAGE_KEY,
+        JSON.stringify({
+          fortune:result,
+          displayDate:label
+        })
+      );
 
-      const newCount = currentCount + 1;
+      const newCount = current+1;
       setUsageCount(newCount);
       saveUsageCount(newCount);
-    } catch (err: any) {
-      console.error('Fortune telling error:', err);
-      setFortune(null);
-      setError(err?.message || '占いに失敗しました。もう一度お試しください。');
-    } finally {
+
+    }catch(err:any){
+
+      console.error(err);
+      setError('占いに失敗しました');
+
+    }finally{
+
       setIsLoading(false);
+
     }
+
   };
 
-  const remainingCount = Math.max(0, MAX_USAGE - usageCount);
+  const remaining = Math.max(0,MAX_USAGE-usageCount);
 
-  return (
+  return(
+
     <div className="min-h-screen bg-black text-white">
-      <Logo />
+
+      <Logo/>
 
       <div className="max-w-xl mx-auto px-4 py-6">
+
         <div className="mb-4 text-center text-sm text-zinc-300">
-          本日の残り回数: {remainingCount} / {MAX_USAGE}
+          本日の残り回数: {remaining} / {MAX_USAGE}
         </div>
 
         <FortuneForm
@@ -275,46 +193,47 @@ const App: React.FC = () => {
           isLocked={isLocked}
           isFortuneForOthers={isFortuneForOthers}
           setIsFortuneForOthers={setIsFortuneForOthers}
-          onSubmit={handleSubmit}
+          handleSubmit={handleSubmit}
+          usageCount={usageCount}
+          maxUsage={MAX_USAGE}
         />
 
         {isLoading && (
           <div className="mt-6">
-            <Loader />
+            <Loader/>
           </div>
         )}
 
         {error && (
-          <div className="mt-4 text-red-400 text-center whitespace-pre-line">
+          <div className="mt-4 text-red-400 text-center">
             {error}
-          </div>
-        )}
-
-        {autoSaveStatus === 'saved' && !isLoading && fortune && (
-          <div className="mt-4 text-emerald-400 text-center text-sm">
-            鑑定結果を保存しました
           </div>
         )}
 
         {fortune && !isLoading && (
           <div className="mt-6">
-            {displayDate && (
-              <div className="mb-4 text-center text-zinc-400 text-sm">
-                {displayDate}
-              </div>
-            )}
-            <FortuneResultDisplay fortune={fortune} />
+
+            <div className="mb-4 text-center text-zinc-400 text-sm">
+              {displayDate}
+            </div>
+
+            <FortuneResultDisplay fortune={fortune}/>
+
           </div>
         )}
 
         {!fortune && !isLoading && (
           <div className="mt-6">
-            <Manual />
+            <Manual/>
           </div>
         )}
+
       </div>
+
     </div>
+
   );
+
 };
 
 export default App;
