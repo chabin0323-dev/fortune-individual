@@ -1,5 +1,12 @@
 import { Fortune, UserInfo } from '../types';
 
+const formatLocalDate = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export async function getFortune(
   userInfo: UserInfo,
   targetDateType: 'today' | 'tomorrow'
@@ -11,7 +18,8 @@ export async function getFortune(
     targetDate.setDate(today.getDate() + 1);
   }
 
-  const dateString = targetDate.toISOString().split('T')[0];
+  // 日本時間ベースで日付文字列を作る
+  const dateString = formatLocalDate(targetDate);
 
   const prompt = `
 あなたはプロの占い師です。
