@@ -1,117 +1,68 @@
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const { prompt } = req.body || {};
 
-    if (!prompt) {
-      return res.status(400).json({ error: 'Prompt is required' });
-    }
+    const { prompt } = req.body;
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY is not set' });
-    }
 
     const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
         },
         body: JSON.stringify({
           contents: [
             {
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            topP: 0.9,
-            topK: 32,
-            maxOutputTokens: 2048,
-          },
-        }),
+              parts: [{ text: prompt }]
+            }
+          ]
+        })
       }
     );
 
-    const rawText = await response.text();
+    const data = await response.json();
 
-    if (!response.ok) {
+    let text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // ```json 제거
+    text = text.replace(/```json/g, "")
+               .replace(/```/g, "")
+               .trim();
+
+    // JSON部分だけ抽出
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+
+    if (start === -1 || end === -1) {
       return res.status(500).json({
-        error: 'Gemini API request failed',
-        details: rawText,
+        error: "Gemini returned invalid format",
+        raw: text
       });
     }
 
-    let apiData;
-    try {
-      apiData = JSON.parse(rawText);
-    } catch (e) {
-      return res.status(500).json({
-        error: 'Gemini API response parse failed',
-        details: rawText,
-      });
-    }
+    const jsonText = text.substring(start, end + 1);
 
-    const text =
-      apiData?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+    const result = JSON.parse(jsonText);
 
-    if (!text) {
-      return res.status(500).json({
-        error: 'No text returned from Gemini',
-        details: apiData,
-      });
-    }
+    res.status(200).json(result);
 
-    // Geminiが ```json ... ``` で返しても拾えるようにする
-    let cleaned = text.trim();
+  } catch (err) {
 
-    if (cleaned.startsWith('```json')) {
-      cleaned = cleaned.replace(/^```json/, '').replace(/```$/, '').trim();
-    } else if (cleaned.startsWith('```')) {
-      cleaned = cleaned.replace(/^```/, '').replace(/```$/, '').trim();
-    }
-
-    // 最初の { から最後の } までを抜き出す
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-    if (start !== -1 && end !== -1) {
-      cleaned = cleaned.slice(start, end + 1);
-    }
-
-    let parsed;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch (e) {
-      return res.status(500).json({
-        error: 'Gemini returned invalid JSON',
-        details: cleaned,
-      });
-    }
-
-    const result = {
-      overall: parsed.overall || { luck: 3, text: '' },
-      money: parsed.money || { luck: 3, text: '' },
-      health: parsed.health || { luck: 3, text: '' },
-      love: parsed.love || { luck: 3, text: '' },
-      work: parsed.work || { luck: 3, text: '' },
-      advice: parsed.advice || '',
-      weeklyBiorhythm: Array.isArray(parsed.weeklyBiorhythm) ? parsed.weeklyBiorhythm : [],
-      luckyItem: parsed.luckyItem || '',
-      luckyColor: parsed.luckyColor || '',
-      luckyNumber: parsed.luckyNumber || '',
-    };
-
-    return res.status(200).json(result);
-  } catch (error) {
-    return res.status(500).json({
-      error: 'Internal server error',
-      details: error?.message || String(error),
+    res.status(500).json({
+      error: "Fortune API failed",
+      details: err.message
     });
+
   }
+
 }
