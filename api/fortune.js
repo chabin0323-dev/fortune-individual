@@ -34,7 +34,6 @@ export default async function handler(req, res) {
             topP: 0.9,
             topK: 32,
             maxOutputTokens: 2048,
-            responseMimeType: 'application/json',
           },
         }),
       }
@@ -54,13 +53,13 @@ export default async function handler(req, res) {
       apiData = JSON.parse(rawText);
     } catch (e) {
       return res.status(500).json({
-        error: 'Failed to parse Gemini API response',
+        error: 'Gemini API response parse failed',
         details: rawText,
       });
     }
 
     const text =
-      apiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      apiData?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
 
     if (!text) {
       return res.status(500).json({
@@ -69,13 +68,29 @@ export default async function handler(req, res) {
       });
     }
 
+    // Geminiが ```json ... ``` で返しても拾えるようにする
+    let cleaned = text.trim();
+
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replace(/^```json/, '').replace(/```$/, '').trim();
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```/, '').replace(/```$/, '').trim();
+    }
+
+    // 最初の { から最後の } までを抜き出す
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end !== -1) {
+      cleaned = cleaned.slice(start, end + 1);
+    }
+
     let parsed;
     try {
-      parsed = JSON.parse(text);
+      parsed = JSON.parse(cleaned);
     } catch (e) {
       return res.status(500).json({
-        error: 'Failed to parse Gemini JSON payload',
-        details: text,
+        error: 'Gemini returned invalid JSON',
+        details: cleaned,
       });
     }
 
@@ -86,9 +101,7 @@ export default async function handler(req, res) {
       love: parsed.love || { luck: 3, text: '' },
       work: parsed.work || { luck: 3, text: '' },
       advice: parsed.advice || '',
-      weeklyBiorhythm: Array.isArray(parsed.weeklyBiorhythm)
-        ? parsed.weeklyBiorhythm
-        : [],
+      weeklyBiorhythm: Array.isArray(parsed.weeklyBiorhythm) ? parsed.weeklyBiorhythm : [],
       luckyItem: parsed.luckyItem || '',
       luckyColor: parsed.luckyColor || '',
       luckyNumber: parsed.luckyNumber || '',
