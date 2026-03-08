@@ -7,6 +7,7 @@ export interface WeeklyBiorhythmItem {
   date: string;
   day: string;
   luck: number;
+  comment: string;
 }
 
 export interface Fortune {
