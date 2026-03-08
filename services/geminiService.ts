@@ -4,7 +4,6 @@ export async function getFortune(
   userInfo: UserInfo,
   targetDateType: 'today' | 'tomorrow'
 ): Promise<Fortune> {
-
   const today = new Date();
   const targetDate = new Date(today);
 
@@ -28,49 +27,61 @@ export async function getFortune(
 対象日: ${dateString}
 
 【重要ルール】
-
 ・占い結果は必ず再現性のある内容にする
-・同じ人物と同じ日付なら必ず同じ結果にする
-・ランダムは禁止
+・同じ人物と同じ対象日なら必ず同じ結果にする
+・ランダム要素は禁止
 ・生年月日と対象日から計算した結果にする
+・1週間のバイオリズムは「対象日」を起点に7日分を出す
+・今日アクセスした日ではなく、必ず「対象日」基準で7日分を出す
+・JSON以外の文章は一切出力しない
 
 【出力内容】
-
 ①今日の総合運
-前向きで希望が持てる文章で説明
-
 ②今日のアドバイス
-今日すると良い行動を具体的に書く
+③1週間のバイオリズム（対象日から7日分）
+④金運
+⑤健康運
+⑥恋愛運
+⑦仕事運
+⑧ラッキーアイテム
+⑨ラッキーカラー
+⑩ラッキーナンバー
 
-③1週間のバイオリズム
-対象日から7日間の運勢を出す
-
-例
-
-月：★★★★☆
-火：★★★☆☆
-水：★★★★★
-木：★★☆☆☆
-金：★★★★☆
-土：★★★☆☆
-日：★★★★★
-
-※★は1〜5
-
-④ラッキーアイテム
-⑤ラッキーカラー
-⑥ラッキーナンバー
-
-JSON形式で出力してください
+【1週間のバイオリズムの形式】
+weeklyBiorhythm は配列で返すこと。
+各要素は以下の形式にすること。
 
 {
- "overall": { "luck": 4, "text": "" },
- "money": { "luck": 3, "text": "" },
- "health": { "luck": 4, "text": "" },
- "love": { "luck": 5, "text": "" },
- "work": { "luck": 4, "text": "" },
- "luckyItem": "",
- "luckyNumber": ""
+  "date": "2026-03-08",
+  "day": "日",
+  "luck": 5
+}
+
+・date は YYYY-MM-DD
+・day は 日本語の曜日（例: 月, 火, 水, 木, 金, 土, 日）
+・luck は 1〜5 の整数
+・必ず7件返すこと
+
+【JSON形式でのみ出力】
+{
+  "overall": { "luck": 4, "text": "..." },
+  "money": { "luck": 3, "text": "..." },
+  "health": { "luck": 4, "text": "..." },
+  "love": { "luck": 5, "text": "..." },
+  "work": { "luck": 4, "text": "..." },
+  "advice": "...",
+  "weeklyBiorhythm": [
+    { "date": "2026-03-08", "day": "日", "luck": 5 },
+    { "date": "2026-03-09", "day": "月", "luck": 4 },
+    { "date": "2026-03-10", "day": "火", "luck": 3 },
+    { "date": "2026-03-11", "day": "水", "luck": 5 },
+    { "date": "2026-03-12", "day": "木", "luck": 2 },
+    { "date": "2026-03-13", "day": "金", "luck": 4 },
+    { "date": "2026-03-14", "day": "土", "luck": 3 }
+  ],
+  "luckyItem": "...",
+  "luckyColor": "...",
+  "luckyNumber": "..."
 }
 `;
 
