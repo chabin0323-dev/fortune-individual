@@ -1,7 +1,12 @@
-
 export interface FortuneCategory {
-  luck: number; // 1-5 rating
+  luck: number;
   text: string;
+}
+
+export interface WeeklyBiorhythmItem {
+  date: string;
+  day: string;
+  luck: number;
 }
 
 export interface Fortune {
@@ -10,18 +15,21 @@ export interface Fortune {
   health: FortuneCategory;
   love: FortuneCategory;
   work: FortuneCategory;
+  advice: string;
+  weeklyBiorhythm: WeeklyBiorhythmItem[];
   luckyItem: string;
+  luckyColor: string;
   luckyNumber: string;
 }
 
 export interface UserInfo {
-    name: string;
-    year: string;
-    month: string;
-    day: string;
-    bloodType: string;
-    zodiacSign: string;
-    eto: string;
+  name: string;
+  year: string;
+  month: string;
+  day: string;
+  bloodType: string;
+  zodiacSign: string;
+  eto: string;
 }
 
 export interface YearlyFortuneContent {
