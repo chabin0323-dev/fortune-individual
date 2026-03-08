@@ -6,15 +6,32 @@ function hashString(str) {
   return hash;
 }
 
-function pick(arr, seed) {
+function pickBySeed(arr, seed) {
   return arr[seed % arr.length];
 }
 
-function makeLuck(seed, offset = 0) {
-  return ((seed + offset) % 5) + 1;
+function makeDailyLuck(userSeed, dateStr) {
+  const seed = hashString(`${userSeed}_${dateStr}`);
+  return (seed % 5) + 1;
 }
 
-function makeWeeklyBiorhythm(baseDateStr, seed) {
+function makeDailyComment(luck) {
+  switch (luck) {
+    case 5:
+      return '今週のピーク。積極的な行動が吉。';
+    case 4:
+      return '好調なスタート。直感を信じて進んで。';
+    case 3:
+      return '安定した運気。ルーチンを大切に。';
+    case 2:
+      return '少し休息が必要。無理は禁物です。';
+    case 1:
+    default:
+      return '穏やかな流れ。自分を労わって。';
+  }
+}
+
+function makeWeeklyBiorhythm(baseDateStr, userSeed) {
   const days = ['日', '月', '火', '水', '木', '金', '土'];
   const baseDate = new Date(baseDateStr);
   const result = [];
@@ -26,101 +43,111 @@ function makeWeeklyBiorhythm(baseDateStr, seed) {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    const luck = makeDailyLuck(userSeed, dateStr);
 
     result.push({
-      date: `${yyyy}-${mm}-${dd}`,
+      date: dateStr,
       day: days[d.getDay()],
-      luck: makeLuck(seed, i)
+      luck,
+      comment: makeDailyComment(luck),
     });
   }
 
   return result;
 }
 
-function buildFallbackFortune(prompt) {
-  const seed = hashString(prompt);
+function buildDeterministicFortune(prompt) {
+  const dateMatch = prompt.match(/対象日:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})/);
+  const nameMatch = prompt.match(/名前:\s*(.+)/);
+  const birthMatch = prompt.match(/生年月日:\s*([0-9]{4}-[0-9]{1,2}-[0-9]{1,2})/);
+
+  const baseDateStr = dateMatch ? dateMatch[1] : new Date().toISOString().split('T')[0];
+  const name = nameMatch ? nameMatch[1].trim() : 'あなた';
+  const birth = birthMatch ? birthMatch[1].trim() : '1990-1-1';
+
+  const userSeedBase = `${name}_${birth}`;
+  const seed = hashString(`${userSeedBase}_${baseDateStr}`);
 
   const overallTexts = [
-    '今日は落ち着いて行動すると、物事が良い方向へ進みやすい日です。',
-    '直感を信じて進むことで、小さな幸運を引き寄せやすい日です。',
-    '焦らず丁寧に過ごすことで、安心感と充実感を得やすい日です。',
-    '人とのやり取りの中に、前向きなヒントが見つかりやすい日です。',
-    '自分のペースを大切にすると、運気の流れが整いやすい日です。'
+    '今日は全体的に前向きな流れです。焦らず進むことで運気が整いやすい日です。',
+    '小さな行動の積み重ねが大きな成果につながりやすい日です。',
+    '直感と現実のバランスを取ることで、安定した一日になりやすいです。',
+    '落ち着いた判断が幸運を引き寄せる日です。自分の感覚を大切にしてください。',
+    '無理をしすぎず、自分のペースを守ることで流れが良くなります。'
   ];
 
   const moneyTexts = [
-    '無駄遣いを控えると、金運の安定につながります。',
-    '必要なものに絞って使うことで、満足度の高いお金の流れになります。',
-    '小さな節約が後で大きな安心につながる日です。',
-    '買い物は比較してから決めると良い結果になりやすいです。',
-    'お金の管理を見直すと、気持ちにも余裕が生まれます。'
+    '計画的なお金の使い方が吉です。',
+    '必要なものを見極めると金運が安定します。',
+    '衝動買いを避けると気持ちにも余裕が出ます。',
+    '小さな節約が後で大きな安心につながります。',
+    'お金の流れを見直すのに良い日です。'
   ];
 
   const healthTexts = [
-    '無理をせず、睡眠と休息を意識すると体調が整いやすい日です。',
-    '軽い運動や深呼吸が心身のバランスを整えてくれます。',
-    '食事の時間を整えると、体のリズムが安定しやすいです。',
-    '今日は頑張りすぎず、ゆとりを持つことが健康運アップにつながります。',
-    '体を温めることを意識すると、快適に過ごしやすい日です。'
+    '休息を意識すると体調が整いやすい日です。',
+    '睡眠と水分補給を大切にすると快適に過ごせます。',
+    '軽い運動が心身のバランスを整えてくれます。',
+    '無理をしないことが健康運アップにつながります。',
+    '今日は身体を温めることを意識してください。'
   ];
 
   const loveTexts = [
-    '優しい言葉が相手との距離を縮めやすい日です。',
-    '素直な気持ちを少しだけ表現すると、関係が前向きに進みやすいです。',
-    '焦らず自然体でいることで、魅力が伝わりやすくなります。',
-    '相手を思いやる行動が恋愛運を高めてくれる日です。',
-    '小さな気配りが心のつながりを深めやすい日です。'
+    '優しい言葉が良い流れを呼びます。',
+    '自然体でいることで魅力が伝わりやすい日です。',
+    '小さな気配りが恋愛運を高めてくれます。',
+    '焦らず穏やかに向き合うことで関係が深まりやすいです。',
+    '素直な気持ちが良い縁を引き寄せます。'
   ];
 
   const workTexts = [
-    'ひとつずつ丁寧に進めることで、信頼につながりやすい日です。',
-    '優先順位をはっきりさせると、効率よく動けます。',
-    '今日は確認作業を大切にすると、良い成果を出しやすいです。',
-    '新しい工夫を少し取り入れると、仕事運が上向きやすいです。',
-    '落ち着いて対応することで、周囲からの評価も安定しやすいです。'
+    '丁寧な確認が成果につながりやすい日です。',
+    '優先順位を整理するとスムーズに進みます。',
+    '落ち着いて取り組むと良い評価につながりやすいです。',
+    '一つずつ進めることで信頼を得やすい日です。',
+    '今日は地道な努力が実りやすい日です。'
   ];
 
   const adviceTexts = [
-    '今日は小さなことでも一歩前に進める行動を意識してみてください。',
-    '迷った時は、無理に急がず落ち着いて選ぶことが大切です。',
-    '身の回りを少し整えると、運気の流れも整いやすくなります。',
-    '人に優しく接することで、巡り巡って良い流れが戻ってきます。',
-    '自分を責めず、できたことに目を向けると前向きな一日になります。'
+    '今日は一つだけでも前向きな行動を選んでみてください。',
+    '焦らず、自分のリズムを大切にすると良い流れになります。',
+    '身の回りを整えると気持ちも運気も安定しやすくなります。',
+    '無理に頑張りすぎず、できたことを認めることが大切です。',
+    '人とのやり取りでは、優しさを少し多めに意識すると吉です。'
   ];
 
-  const luckyItems = ['青いノート', '小さな鏡', 'ハンカチ', 'お気に入りのペン', '香りの良いハンドクリーム'];
-  const luckyColors = ['ネイビー', 'ピンク', 'グリーン', 'ゴールド', 'スカイブルー'];
+  const luckyItems = ['青いノート', 'お気に入りのペン', 'ハンカチ', '小さな鏡', '香りのよいハンドクリーム'];
+  const luckyColors = ['ネイビー', 'ゴールド', 'ピンク', 'スカイブルー', 'グリーン'];
   const luckyNumbers = ['3', '5', '7', '8', '9'];
-
-  const dateMatch = prompt.match(/対象日:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})/);
-  const baseDateStr = dateMatch ? dateMatch[1] : new Date().toISOString().split('T')[0];
 
   return {
     overall: {
-      luck: makeLuck(seed, 0),
-      text: pick(overallTexts, seed + 1)
+      luck: (seed % 5) + 1,
+      text: pickBySeed(overallTexts, seed + 1),
     },
     money: {
-      luck: makeLuck(seed, 1),
-      text: pick(moneyTexts, seed + 2)
+      luck: ((seed + 1) % 5) + 1,
+      text: pickBySeed(moneyTexts, seed + 2),
     },
     health: {
-      luck: makeLuck(seed, 2),
-      text: pick(healthTexts, seed + 3)
+      luck: ((seed + 2) % 5) + 1,
+      text: pickBySeed(healthTexts, seed + 3),
     },
     love: {
-      luck: makeLuck(seed, 3),
-      text: pick(loveTexts, seed + 4)
+      luck: ((seed + 3) % 5) + 1,
+      text: pickBySeed(loveTexts, seed + 4),
     },
     work: {
-      luck: makeLuck(seed, 4),
-      text: pick(workTexts, seed + 5)
+      luck: ((seed + 4) % 5) + 1,
+      text: pickBySeed(workTexts, seed + 5),
     },
-    advice: pick(adviceTexts, seed + 6),
-    weeklyBiorhythm: makeWeeklyBiorhythm(baseDateStr, seed),
-    luckyItem: pick(luckyItems, seed + 7),
-    luckyColor: pick(luckyColors, seed + 8),
-    luckyNumber: pick(luckyNumbers, seed + 9)
+    advice: pickBySeed(adviceTexts, seed + 6),
+    weeklyBiorhythm: makeWeeklyBiorhythm(baseDateStr, userSeedBase),
+    luckyItem: pickBySeed(luckyItems, seed + 7),
+    luckyColor: pickBySeed(luckyColors, seed + 8),
+    luckyNumber: pickBySeed(luckyNumbers, seed + 9),
   };
 }
 
@@ -136,11 +163,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    // まず固定結果を作る
+    const fallback = buildDeterministicFortune(prompt);
 
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      // APIキーがなくても固定ロジックで返す
-      return res.status(200).json(buildFallbackFortune(prompt));
+      return res.status(200).json(fallback);
     }
 
     try {
@@ -150,50 +178,46 @@ export default async function handler(req, res) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
+            'x-goog-api-key': apiKey,
           },
           body: JSON.stringify({
             contents: [
               {
-                parts: [{ text: prompt }]
-              }
+                parts: [{ text: prompt }],
+              },
             ],
             generationConfig: {
               temperature: 0,
               topP: 0.1,
               topK: 1,
               maxOutputTokens: 2048,
-              responseMimeType: 'application/json'
-            }
-          })
+              responseMimeType: 'application/json',
+            },
+          }),
         }
       );
 
       const rawText = await response.text();
 
       if (!response.ok) {
-        // Gemini失敗時も固定ロジックで返す
-        return res.status(200).json(buildFallbackFortune(prompt));
+        return res.status(200).json(fallback);
       }
 
       let apiData;
       try {
         apiData = JSON.parse(rawText);
       } catch {
-        return res.status(200).json(buildFallbackFortune(prompt));
+        return res.status(200).json(fallback);
       }
 
       let text =
         apiData?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
 
       if (!text) {
-        return res.status(200).json(buildFallbackFortune(prompt));
+        return res.status(200).json(fallback);
       }
 
-      text = text
-        .replace(/```json/gi, '')
-        .replace(/```/g, '')
-        .trim();
+      text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
 
       const start = text.indexOf('{');
       const end = text.lastIndexOf('}');
@@ -206,34 +230,37 @@ export default async function handler(req, res) {
       try {
         parsed = JSON.parse(text);
       } catch {
-        return res.status(200).json(buildFallbackFortune(prompt));
+        return res.status(200).json(fallback);
       }
 
-      const result = {
-        overall: parsed.overall || { luck: 3, text: '' },
-        money: parsed.money || { luck: 3, text: '' },
-        health: parsed.health || { luck: 3, text: '' },
-        love: parsed.love || { luck: 3, text: '' },
-        work: parsed.work || { luck: 3, text: '' },
-        advice: parsed.advice || '',
-        weeklyBiorhythm: Array.isArray(parsed.weeklyBiorhythm)
-          ? parsed.weeklyBiorhythm
-          : buildFallbackFortune(prompt).weeklyBiorhythm,
-        luckyItem: parsed.luckyItem || '',
-        luckyColor: parsed.luckyColor || '',
-        luckyNumber: parsed.luckyNumber || ''
-      };
-
-      return res.status(200).json(result);
+      // 週バイオリズムは必ず固定ロジックを優先
+      return res.status(200).json({
+        overall: parsed.overall || fallback.overall,
+        money: parsed.money || fallback.money,
+        health: parsed.health || fallback.health,
+        love: parsed.love || fallback.love,
+        work: parsed.work || fallback.work,
+        advice: parsed.advice || fallback.advice,
+        weeklyBiorhythm: fallback.weeklyBiorhythm,
+        luckyItem: parsed.luckyItem || fallback.luckyItem,
+        luckyColor: parsed.luckyColor || fallback.luckyColor,
+        luckyNumber: parsed.luckyNumber || fallback.luckyNumber,
+      });
     } catch {
-      // 何が起きても必ず返す
-      return res.status(200).json(buildFallbackFortune(prompt));
+      return res.status(200).json(fallback);
     }
-  } catch (error) {
-    return res.status(200).json(
-      buildFallbackFortune(
-        (req.body && req.body.prompt) || '対象日: ' + new Date().toISOString().split('T')[0]
-      )
-    );
+  } catch {
+    return res.status(200).json({
+      overall: { luck: 3, text: '今日は落ち着いて行動すると良い流れに乗れます。' },
+      money: { luck: 3, text: '無駄遣いを控えると安定しやすい日です。' },
+      health: { luck: 3, text: '休息を意識すると整いやすい日です。' },
+      love: { luck: 3, text: '素直な気持ちが伝わりやすい日です。' },
+      work: { luck: 3, text: '一つずつ丁寧に進めると良い結果につながります。' },
+      advice: '今日は焦らず、自分のペースを大切にしてください。',
+      weeklyBiorhythm: [],
+      luckyItem: 'ノート',
+      luckyColor: 'ネイビー',
+      luckyNumber: '7',
+    });
   }
 }
