@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Fortune, UserInfo } from './types';
-import { BLOOD_TYPES, ZODIAC_SIGNS, ETO } from './constants';
 import { getFortune } from './services/geminiService';
 import { FortuneResultDisplay } from './components/FortuneResultDisplay';
 import { FortuneForm } from './components/FortuneForm';
@@ -8,9 +7,10 @@ import { Loader } from './components/Loader';
 import { Logo } from './components/Logo';
 import { Manual } from './components/Manual';
 
+const MAX_USAGE = 5;
+
 const App: React.FC = () => {
 
-  const MAX_USAGE = 5;
   const USER_INFO_STORAGE_KEY = 'fortune_user_info';
   const FORTUNE_STORAGE_KEY = 'fortune_latest_result';
   const USAGE_STORAGE_KEY = 'fortune_usage';
@@ -55,11 +55,15 @@ const App: React.FC = () => {
       const parsed = JSON.parse(raw);
 
       if(parsed.date !== todayKey()){
+
         setUsageCount(0);
 
         localStorage.setItem(
           USAGE_STORAGE_KEY,
-          JSON.stringify({date:todayKey(),count:0})
+          JSON.stringify({
+            date:todayKey(),
+            count:0
+          })
         );
 
         return 0;
@@ -91,11 +95,13 @@ const App: React.FC = () => {
   useEffect(()=>{
 
     const savedUser = localStorage.getItem(USER_INFO_STORAGE_KEY);
+
     if(savedUser){
       setUserInfo(JSON.parse(savedUser));
     }
 
     const savedFortune = localStorage.getItem(FORTUNE_STORAGE_KEY);
+
     if(savedFortune){
       const parsed = JSON.parse(savedFortune);
       setFortune(parsed.fortune);
@@ -155,7 +161,9 @@ const App: React.FC = () => {
       );
 
       const newCount = current+1;
+
       setUsageCount(newCount);
+
       saveUsageCount(newCount);
 
     }catch(err:any){
@@ -171,8 +179,6 @@ const App: React.FC = () => {
 
   };
 
-  const remaining = Math.max(0,MAX_USAGE-usageCount);
-
   return(
 
     <div className="min-h-screen bg-black text-white">
@@ -180,10 +186,6 @@ const App: React.FC = () => {
       <Logo/>
 
       <div className="max-w-xl mx-auto px-4 py-6">
-
-        <div className="mb-4 text-center text-sm text-zinc-300">
-          本日の残り回数: {remaining} / {MAX_USAGE}
-        </div>
 
         <FortuneForm
           userInfo={userInfo}
