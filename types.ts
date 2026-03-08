@@ -11,12 +11,14 @@ export interface WeeklyBiorhythmItem {
 }
 
 export interface Fortune {
+  fortuneDate: string;
   overall: FortuneCategory;
   money: FortuneCategory;
   health: FortuneCategory;
   love: FortuneCategory;
   work: FortuneCategory;
   advice: string;
+  action: string;
   weeklyBiorhythm: WeeklyBiorhythmItem[];
   luckyItem: string;
   luckyColor: string;
