@@ -3,8 +3,6 @@ import { Fortune } from '../types';
 
 type Props = {
   fortune: Fortune;
-  date?: string;
-  name?: string;
 };
 
 const renderStars = (luck: number) => {
@@ -29,6 +27,11 @@ const FortuneCard: React.FC<{
 export const FortuneResultDisplay: React.FC<Props> = ({ fortune }) => {
   return (
     <div className="space-y-6">
+      <div className="bg-zinc-900 border border-cyan-700/40 rounded-2xl p-4 shadow-lg">
+        <p className="text-cyan-300 text-sm mb-1">鑑定日</p>
+        <p className="text-white text-xl font-bold">{fortune.fortuneDate}</p>
+      </div>
+
       <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 shadow-lg">
         <h2 className="text-2xl font-bold text-white mb-3">今日の総合運</h2>
         <div className="text-yellow-300 text-2xl mb-3">
@@ -36,6 +39,13 @@ export const FortuneResultDisplay: React.FC<Props> = ({ fortune }) => {
         </div>
         <p className="text-zinc-100 leading-relaxed whitespace-pre-line">
           {fortune.overall?.text}
+        </p>
+      </div>
+
+      <div className="bg-zinc-900 border border-emerald-700/40 rounded-2xl p-5 shadow-lg">
+        <h2 className="text-2xl font-bold text-emerald-300 mb-3">今日の開運アクション</h2>
+        <p className="text-zinc-100 leading-relaxed whitespace-pre-line">
+          {fortune.action || '朝に5分だけ身の回りを整える。'}
         </p>
       </div>
 
@@ -54,11 +64,7 @@ export const FortuneResultDisplay: React.FC<Props> = ({ fortune }) => {
             {fortune.weeklyBiorhythm.map((item, index) => (
               <div
                 key={`${item.date}-${index}`}
-                className={`rounded-2xl p-5 border shadow-md ${
-                  index === 5
-                    ? 'bg-zinc-900 border-yellow-600'
-                    : 'bg-zinc-900 border-zinc-700'
-                }`}
+                className="rounded-2xl p-5 border bg-zinc-900 border-zinc-700 shadow-md"
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-zinc-300 text-xl font-semibold">
