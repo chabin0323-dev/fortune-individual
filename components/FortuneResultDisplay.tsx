@@ -3,6 +3,8 @@ import { Fortune } from '../types';
 
 type Props = {
   fortune: Fortune;
+  date?: string;
+  name?: string;
 };
 
 const renderStars = (luck: number) => {
@@ -44,53 +46,49 @@ export const FortuneResultDisplay: React.FC<Props> = ({ fortune }) => {
         </p>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 shadow-lg">
-        <h2 className="text-2xl font-bold text-white mb-4">1週間のバイオリズム</h2>
+      <div className="bg-zinc-900 border border-yellow-700/50 rounded-2xl p-5 shadow-lg">
+        <h2 className="text-2xl font-bold text-yellow-300 mb-4">今週のバイオリズム</h2>
 
         {fortune.weeklyBiorhythm && fortune.weeklyBiorhythm.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {fortune.weeklyBiorhythm.map((item, index) => (
               <div
                 key={`${item.date}-${index}`}
-                className="flex items-center justify-between bg-zinc-800 rounded-xl px-4 py-3"
+                className={`rounded-2xl p-5 border shadow-md ${
+                  index === 5
+                    ? 'bg-zinc-900 border-yellow-600'
+                    : 'bg-zinc-900 border-zinc-700'
+                }`}
               >
-                <div>
-                  <div className="text-white font-semibold">
-                    {item.day}（{item.date}）
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-zinc-300 text-xl font-semibold">
+                    {item.date}
+                  </div>
+                  <div className="text-yellow-300 text-2xl">
+                    {renderStars(item.luck)}
                   </div>
                 </div>
-                <div className="text-yellow-300 text-lg">
-                  {renderStars(item.luck)}
-                </div>
+
+                <p className="text-white text-2xl font-bold leading-relaxed">
+                  {item.comment}
+                </p>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-zinc-300">1週間のバイオリズムはまだありません。</p>
+          <p className="text-zinc-300">今週のバイオリズムはまだありません。</p>
         )}
+
+        <p className="text-zinc-400 text-sm mt-4">
+          ※毎日の運勢の波を示したものです。行動の参考としてお役立てください
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FortuneCard
-          title="金運"
-          luck={fortune.money?.luck}
-          text={fortune.money?.text}
-        />
-        <FortuneCard
-          title="健康運"
-          luck={fortune.health?.luck}
-          text={fortune.health?.text}
-        />
-        <FortuneCard
-          title="恋愛運"
-          luck={fortune.love?.luck}
-          text={fortune.love?.text}
-        />
-        <FortuneCard
-          title="仕事運"
-          luck={fortune.work?.luck}
-          text={fortune.work?.text}
-        />
+        <FortuneCard title="金運" luck={fortune.money?.luck} text={fortune.money?.text} />
+        <FortuneCard title="健康運" luck={fortune.health?.luck} text={fortune.health?.text} />
+        <FortuneCard title="恋愛運" luck={fortune.love?.luck} text={fortune.love?.text} />
+        <FortuneCard title="仕事運" luck={fortune.work?.luck} text={fortune.work?.text} />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 shadow-lg">
