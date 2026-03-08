@@ -100,42 +100,69 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (usageCount >= MAX_USAGE) return;
 
-    setIsLoading(true);
-    setError(null);
-    setAutoSaveStatus(null);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    try {
-      const date = new Date();
-      if (targetDateType === 'tomorrow') date.setDate(date.getDate() + 1);
-      const dateStr = date.toLocaleDateString('ja-JP');
-      const label = `${dateStr} (${targetDateType === 'today' ? '今日' : '明日'})`;
+  if (usageCount >= MAX_USAGE) {
+    setError('本日の利用回数上限に達しました。');
+    return;
+  }
 
-      const result = await getFortune(userInfo, dateStr);
-      setFortune(result);
-      setDisplayDate(label);
+  setIsLoading(true);
+  setError(null);
+  setAutoSaveStatus(null);
+  setFortune(null);
 
-      // 生成完了直後に即座に保存
-      persistFortune(result, label, userInfo.name);
+  try {
+    const date = new Date();
 
-      const newCount = usageCount + 1;
-      setUsageCount(newCount);
-      localStorage.setItem('fortune_usage', JSON.stringify({
+    if (targetDateType === 'tomorrow') {
+      date.setDate(date.getDate() + 1);
+    }
+
+    const dateStr = date.toLocaleDateString('ja-JP');
+    const label =
+      `${dateStr} (${targetDateType === 'today' ? '今日' : '明日'})`;
+
+    // ★ここが重要
+    const result = await getFortune(userInfo, targetDateType);
+
+    setFortune(result);
+    setDisplayDate(label);
+
+    // 鑑定結果保存
+    persistFortune(result, label, userInfo.name);
+
+    const newCount = usageCount + 1;
+
+    setUsageCount(newCount);
+
+    localStorage.setItem(
+      'fortune_usage',
+      JSON.stringify({
         date: new Date().toLocaleDateString(),
         count: newCount
-      }));
-    } catch (err: any) {
-      console.error("Fortune telling error:", err);
-      // エラーメッセージをユーザーに表示（APIキーエラーなどを判別しやすくする）
-      setError(err.message || '占いに失敗しました。もう一度お試しください。');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      })
+    );
 
+  } catch (err: any) {
+
+    console.error("Fortune telling error:", err);
+
+    setFortune(null);
+
+    setError(
+      err?.message ||
+      "占いに失敗しました。もう一度お試しください。"
+    );
+
+  } finally {
+
+    setIsLoading(false);
+
+  }
+};
   const handleStartOthers = () => {
     setSavedInfo({ ...userInfo });
     setIsFortuneForOthers(true);
