@@ -10,7 +10,6 @@ import { Manual } from './components/Manual';
 const MAX_USAGE = 5;
 
 const App: React.FC = () => {
-
   const USER_INFO_STORAGE_KEY = 'fortune_user_info';
   const FORTUNE_STORAGE_KEY = 'fortune_latest_result';
   const USAGE_STORAGE_KEY = 'fortune_usage';
@@ -38,31 +37,28 @@ const App: React.FC = () => {
 
   const todayKey = () => {
     const d = new Date();
-    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
   };
 
   const loadUsageCount = () => {
-
-    try{
-
+    try {
       const raw = localStorage.getItem(USAGE_STORAGE_KEY);
 
-      if(!raw){
+      if (!raw) {
         setUsageCount(0);
         return 0;
       }
 
       const parsed = JSON.parse(raw);
 
-      if(parsed.date !== todayKey()){
-
+      if (parsed.date !== todayKey()) {
         setUsageCount(0);
 
         localStorage.setItem(
           USAGE_STORAGE_KEY,
           JSON.stringify({
-            date:todayKey(),
-            count:0
+            date: todayKey(),
+            count: 0,
           })
         );
 
@@ -72,62 +68,71 @@ const App: React.FC = () => {
       const count = Number(parsed.count) || 0;
       setUsageCount(count);
       return count;
-
-    }catch{
+    } catch {
       setUsageCount(0);
       return 0;
     }
-
   };
 
-  const saveUsageCount = (count:number) => {
-
+  const saveUsageCount = (count: number) => {
     localStorage.setItem(
       USAGE_STORAGE_KEY,
       JSON.stringify({
-        date:todayKey(),
-        count
+        date: todayKey(),
+        count,
       })
     );
-
   };
 
-  useEffect(()=>{
-
+  useEffect(() => {
     const savedUser = localStorage.getItem(USER_INFO_STORAGE_KEY);
 
-    if(savedUser){
+    if (savedUser) {
       setUserInfo(JSON.parse(savedUser));
     }
 
     const savedFortune = localStorage.getItem(FORTUNE_STORAGE_KEY);
 
-    if(savedFortune){
+    if (savedFortune) {
       const parsed = JSON.parse(savedFortune);
       setFortune(parsed.fortune);
       setDisplayDate(parsed.displayDate);
     }
 
     loadUsageCount();
+  }, []);
 
-  },[]);
+  useEffect(() => {
+    localStorage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(userInfo));
+  }, [userInfo]);
 
-  useEffect(()=>{
+  const isUnknownOrEmpty = (value: string) => {
+    return !value || value.trim() === '' || value === '不明';
+  };
 
-    localStorage.setItem(
-      USER_INFO_STORAGE_KEY,
-      JSON.stringify(userInfo)
+  const hasAtLeastOneInput = () => {
+    return (
+      !isUnknownOrEmpty(userInfo.year) ||
+      !isUnknownOrEmpty(userInfo.month) ||
+      !isUnknownOrEmpty(userInfo.day) ||
+      !isUnknownOrEmpty(userInfo.bloodType) ||
+      !isUnknownOrEmpty(userInfo.zodiacSign) ||
+      !isUnknownOrEmpty(userInfo.eto)
     );
+  };
 
-  },[userInfo]);
-
-  const handleSubmit = async (e:React.FormEvent)=>{
-
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!hasAtLeastOneInput()) {
+      setError('少なくとも1項目入力してください。');
+      setFortune(null);
+      return;
+    }
 
     const current = loadUsageCount();
 
-    if(current >= MAX_USAGE){
+    if (current >= MAX_USAGE) {
       setError('本日の利用回数上限に達しました');
       return;
     }
@@ -136,18 +141,17 @@ const App: React.FC = () => {
     setError(null);
     setFortune(null);
 
-    try{
-
+    try {
       const date = new Date();
 
-      if(targetDateType==='tomorrow'){
-        date.setDate(date.getDate()+1);
+      if (targetDateType === 'tomorrow') {
+        date.setDate(date.getDate() + 1);
       }
 
       const dateStr = date.toLocaleDateString('ja-JP');
-      const label = `${dateStr} (${targetDateType==='today'?'今日':'明日'})`;
+      const label = `${dateStr} (${targetDateType === 'today' ? '今日' : '明日'})`;
 
-      const result = await getFortune(userInfo,targetDateType);
+      const result = await getFortune(userInfo, targetDateType);
 
       setFortune(result);
       setDisplayDate(label);
@@ -155,87 +159,85 @@ const App: React.FC = () => {
       localStorage.setItem(
         FORTUNE_STORAGE_KEY,
         JSON.stringify({
-          fortune:result,
-          displayDate:label
+          fortune: result,
+          displayDate: label,
         })
       );
 
-      const newCount = current+1;
-
+      const newCount = current + 1;
       setUsageCount(newCount);
-
       saveUsageCount(newCount);
-
-    }catch(err:any){
-
+    } catch (err: any) {
       console.error(err);
       setError('占いに失敗しました');
-
-    }finally{
-
+    } finally {
       setIsLoading(false);
-
     }
-
   };
 
-  return(
-
+  return (
     <div className="min-h-screen bg-black text-white">
-
-      <Logo/>
+      <Logo />
 
       <div className="max-w-xl mx-auto px-4 py-6">
-
         <FortuneForm
-          userInfo={userInfo}
-          setUserInfo={setUserInfo}
+          name={userInfo.name}
+          setName={(value) => setUserInfo((prev) => ({ ...prev, name: value }))}
+          year={userInfo.year}
+          setYear={(value) => setUserInfo((prev) => ({ ...prev, year: value }))}
+          month={userInfo.month}
+          setMonth={(value) => setUserInfo((prev) => ({ ...prev, month: value }))}
+          day={userInfo.day}
+          setDay={(value) => setUserInfo((prev) => ({ ...prev, day: value }))}
+          bloodType={userInfo.bloodType}
+          setBloodType={(value) => setUserInfo((prev) => ({ ...prev, bloodType: value }))}
+          zodiacSign={userInfo.zodiacSign}
+          setZodiacSign={(value) => setUserInfo((prev) => ({ ...prev, zodiacSign: value }))}
+          eto={userInfo.eto}
+          setEto={(value) => setUserInfo((prev) => ({ ...prev, eto: value }))}
+          handleSubmit={handleSubmit}
+          isLoading={isLoading}
+          isLocked={isLocked}
+          setIsLocked={setIsLocked}
+          isFortuneForOthers={isFortuneForOthers}
+          onStartFortuneForOthers={() => setIsFortuneForOthers(true)}
+          onReturnToMyInfo={() => setIsFortuneForOthers(false)}
           targetDateType={targetDateType}
           setTargetDateType={setTargetDateType}
-          isLocked={isLocked}
-          isFortuneForOthers={isFortuneForOthers}
-          setIsFortuneForOthers={setIsFortuneForOthers}
-          handleSubmit={handleSubmit}
           usageCount={usageCount}
           maxUsage={MAX_USAGE}
         />
 
         {isLoading && (
           <div className="mt-6">
-            <Loader/>
+            <Loader />
           </div>
         )}
 
         {error && (
-          <div className="mt-4 text-red-400 text-center">
+          <div className="mt-4 text-red-400 text-center font-bold whitespace-pre-line">
             {error}
           </div>
         )}
 
         {fortune && !isLoading && (
           <div className="mt-6">
-
             <div className="mb-4 text-center text-zinc-400 text-sm">
               {displayDate}
             </div>
 
-            <FortuneResultDisplay fortune={fortune}/>
-
+            <FortuneResultDisplay fortune={fortune} />
           </div>
         )}
 
         {!fortune && !isLoading && (
           <div className="mt-6">
-            <Manual/>
+            <Manual />
           </div>
         )}
-
       </div>
-
     </div>
-
   );
-
 };
 
 export default App;
